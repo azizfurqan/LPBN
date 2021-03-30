@@ -1,42 +1,30 @@
-function [predict_links,scores] = Compute_PRA(A)
-
-%For upload on Github
+function [scores] = Compute_PRA(A)
 
 %A is the adjacency matrix
-%score: Path-based RA scores
+%scores is the similairity matrix
 
+%Find the dimensions of the matrix and its degree distributions
+[x,y] = size(A);
+s_degs = sum(A,2);
+d_degs= sum(A,1);
 
-[r,c]=find(A==0); % R:row indices, c:column indices)
-predict_links=[r c];
-clear r c
+%Find Neighbours
+adj_list_s = cellfun(@(x) find(x),num2cell(A,2),'un',0);
+adj_list_d = cellfun(@(x) find(x),num2cell(A,1),'un',0);
 
-num_lnks = size(predict_links,1); % number of links to be predicted
+%Intialize variables
+scores = zeros(x,y);
 
-% Initialize variables
-scores=zeros(num_lnks,1);
-
-
-
-% Neighbours list for each row and column
-ne_r = cellfun(@(x) find(x),num2cell(A,1),'un',0);
-ne_r = ne_r';
-ne_c = cellfun(@(x) find(x),num2cell(A,2),'un',0);
-
-deg_r_all=sum(A,2); % Degrees of all the row nodes
-deg_c_all=sum(A,1); % Degrees of all the column nodes
-
-
-parfor i=1:num_lnks
-    % Parallized loop for each link in links
-    % Take submatrix of neighbours of nodes involved in the link
-    n_r=ne_r{predict_links(i,2)};
-    n_c=ne_c{predict_links(i,1)};
-    sub_mat=A(n_r,n_c);
-    
-
-    sub_mat = ((deg_r_all(n_r))*deg_c_all(n_c)).*sub_mat;
-    sub_mat = 1./sub_mat;
-    sub_mat(isinf(sub_mat))=0;
-    scores(i) = sum(sum(sub_mat));
-    
+%Paralellized for loop
+parfor i=1:x
+    for j=1:y        
+        s_n = adj_list_s{i};
+        d_n = adj_list_d{j};
+        part_mat = A(d_n,s_n);
+        part_degs = ((1./s_degs(d_n))*(1./d_degs(s_n))).*part_mat;
+        scores(i,j) = sum(sum(part_degs));
+    end
 end
+
+scores(isnan(scores)) = 0;
+scores = scores.*(1-A);
